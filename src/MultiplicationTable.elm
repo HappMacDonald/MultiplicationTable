@@ -20,13 +20,13 @@ import Array exposing (Array)
 
 main : Program Decode.Value Model Msg
 main =
-    Browser.application
+    Browser.element
         { init = init
-        , view = view
+        , view = body
         , update = update
         , subscriptions = subscriptions
-        , onUrlChange = \_ -> Noop --UrlChanged
-        , onUrlRequest = \_ -> Noop --LinkClicked
+        -- , onUrlChange = \_ -> Noop --UrlChanged
+        -- , onUrlRequest = \_ -> Noop --LinkClicked
         }
 
 
@@ -42,8 +42,9 @@ type Model
 -- INIT
 
 
-init : Decode.Value -> Url.Url -> Nav.Key -> ( Model, Cmd Msg )
-init flags url navKey =
+{- Decode.Value -> Url.Url -> Nav.Key -}
+init : a -> ( Model, Cmd Msg )
+init {-flags url navKey-} _ =
     ( Model
         ( Array.repeat 10 Nothing
           |>Array.repeat 10
@@ -56,6 +57,7 @@ init flags url navKey =
 
 type Msg
     = OnEntry Int Int String
+    | Reset
     | Noop
 
 
@@ -107,6 +109,9 @@ update msg ((Model modelRows) as model) =
                 , Cmd.none
                 )
 
+        Reset ->
+            init 0
+
         Noop ->
             ( model, Cmd.none )
 
@@ -134,6 +139,30 @@ tableBorderColor =
     Element.rgb 0.2 0.2 0.2
 
 
+-- incorrectColor : Element.Color
+-- incorrectColor =
+--     Element.rgb 1 0 0
+    
+
+-- correctColor : Element.Color
+-- correctColor =
+--     Element.rgb 0 1 0
+
+buttonColor : Element.Color
+buttonColor =
+    Element.rgb 0 1 0
+
+
+incorrectColor : String
+incorrectColor =
+    "red"
+    
+
+correctColor : String
+correctColor =
+    "green"
+
+
 tableBorder : Int
 tableBorder =
     3
@@ -153,101 +182,140 @@ centerWrap inside =
         ]
 
 
-body : Model -> List (Html Msg)
+body : Model -> Html Msg
 body ((Model modelRows) as model) =
     [ modelRows
-    |>Array.indexedMap
-        (\rowNum row ->
-            case rowNum of
-                0 ->
-                    Element.none
+        |>Array.indexedMap
+            (\rowNum row ->
+                case rowNum of
+                    0 ->
+                        Element.none
 
-                1 ->
-                    List.range 1 9
-                    |>List.map
-                        (\colNum ->
-                        Element.text ( String.fromInt colNum )
-                        |>centerWrap
-                        |>Element.el
+                    1 ->
+                        List.range 1 9
+                        |>List.map
+                            (\colNum ->
+                            Element.text ( String.fromInt colNum )
+                            |>centerWrap
+                            |>Element.el
+                                [ Element.width Element.fill
+                                , Element.height Element.fill
+                                , Background.color cellColor
+                                ]
+                            )
+                        |>Element.row -- collection of top headers
                             [ Element.width Element.fill
                             , Element.height Element.fill
-                            , Background.color cellColor
+                            , Element.spacing tableBorder
+                            ]
+
+                    _ -> -- 2-9
+                        ( row
+                        |> Array.indexedMap
+                            (\colNum cell ->
+                            case colNum of
+                                0 ->
+                                    Element.none
+
+                                1 ->
+                                    Element.text ( String.fromInt rowNum )
+                                    |>centerWrap
+                                    |>Element.el
+                                        [ Element.width Element.fill
+                                        , Element.height Element.fill
+                                        , Background.color cellColor
+                                        ]
+                                
+                                _ -> -- 2-9
+                                    let
+                                        cellStr =
+                                            cell
+                                            |>Maybe.map String.fromInt
+                                            |>Maybe.withDefault ""
+
+                                        cellNum =
+                                            Maybe.withDefault 0 cell
+
+                                        indicatorColor =
+                                            ( if 
+                                                ( Debug.log "cellNum" cellNum )
+                                                ==
+                                                ( Debug.log "row x col" (rowNum * colNum) )
+                                            then correctColor
+                                            else incorrectColor
+                                            )
+                                            |>Debug.log "indicatorColor"
+
+                                    in
+                                    Input.text
+                                        [ Element.width Element.fill
+                                        , Element.height Element.fill
+                                        -- , Background.color indicatorColor
+                                        , Attr.style "background-color" indicatorColor
+                                        |>Element.htmlAttribute
+
+                                        , Element.centerX
+                                        ]
+                                        { onChange = OnEntry rowNum colNum
+                                        , text = cellStr
+                                        , placeholder = Nothing
+                                        , label = Input.labelLeft [] Element.none
+                                        }
+                                    |>Element.el
+                                        [ Element.fill
+                                        |>Element.maximum inputWidth
+                                        |>Element.width 
+                                        , Element.height Element.fill
+                                        , Background.color cellColor
+                                        ]
+                            )
+                        |>Array.toList
+                        |>Element.row -- collection of cells
+                            [ Element.width Element.fill
+                            , Element.height Element.fill
+                            , Element.spacing tableBorder
                             ]
                         )
-                    |>Element.row -- collection of top headers
-                        [ Element.width Element.fill
-                        , Element.height Element.fill
-                        , Element.spacing tableBorder
-                        ]
 
-                _ -> -- 2-9
-                    ( row
-                    |> Array.indexedMap
-                        (\colNum cell ->
-                        case colNum of
-                            0 ->
-                                Element.none
-
-                            1 ->
-                                Element.text ( String.fromInt rowNum )
-                                |>centerWrap
-                                |>Element.el
-                                    [ Element.width Element.fill
-                                    , Element.height Element.fill
-                                    , Background.color cellColor
-                                    ]
-                            
-                            _ -> -- 2-9
-                                Input.text
-                                    [ Element.width Element.fill
-                                    , Element.height Element.fill
-                                    , Element.centerX
-                                    ]
-                                    { onChange = OnEntry rowNum colNum
-                                    , text =
-                                        cell
-                                        |>Maybe.map
-                                            String.fromInt
-                                        |>Maybe.withDefault ""
-                                    , placeholder = Nothing
-                                    , label = Input.labelLeft [] Element.none
-                                    }
-                                |>Element.el
-                                    [ Element.fill
-                                      |>Element.maximum inputWidth
-                                      |>Element.width 
-                                    , Element.height Element.fill
-                                    , Background.color cellColor
-                                    ]
-                        )
-                    |>Array.toList
-                    |>Element.row -- collection of cells
-                        [ Element.width Element.fill
-                        , Element.height Element.fill
-                        , Element.spacing tableBorder
-                        ]
-                    )
-
-        )
-    |>Array.toList
-    |>Element.column -- collection of rows
-        [ Element.spacing tableBorder
-        , Element.padding tableBorder
+            )
+        |>Array.toList
+        |>Element.column
+            [ Background.color tableBorderColor
+            , Element.spacing tableBorder
+            , Element.padding tableBorder
+            ]
+      ]
+    ++[ Element.text "\u{00A0}"
+        , Input.button
+        [ Element.width Element.fill
+        , Element.padding 8
+        -- , Element.explain Debug.todo
+        , Font.center
+        , Background.color buttonColor
         ]
+        { onPress = Just Reset
+        , label =
+            Element.text "Start all over?"
+        }
+            
+      ]
+        
+    |>Element.column -- vertical layout of ui
+        [ Element.centerX
+        , Element.centerY
+        ]        
     |>Element.el -- container
         [ Element.centerX
         , Element.centerY
-        , Background.color tableBorderColor
         ]        
     |>Element.layout -- page
         [ Element.width Element.fill
         , Element.height Element.fill
         ]
-    ]
 
 
-view : Model -> Browser.Document Msg
-view model =
-    { title = "Multiplication Tables"
-    , body = body model
-    }
+-- view : Model -> Browser.Document Msg
+-- view model =
+--     { title = "Multiplication Tables"
+--     , body = body model
+--     }
