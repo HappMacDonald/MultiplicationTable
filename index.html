@@ -7,22 +7,42 @@
 
 <body>
 <div id="MultiplicationTable"></div>
-<div style='position:absolute; top: 0; left: 0; border: 1px solid blue; width:100%; visibility: hidden; '><div id="Confetti"></div></div>
+<div id='ConfettiContainter' style='position:absolute; top: 0; left: 0; border: 1px solid blue; width:100%; opacity: 0; visibility: hidden; '><div id="Confetti"></div></div>
 <script src='MultiplicationTable.js'></script>
 <script src='Confetti.js'></script>
 <script>
 
-var app = Elm.MultiplicationTable.init({ node: document.getElementById("MultiplicationTable") });
+var appMultiplicationTable = Elm.MultiplicationTable.init
+( { node: document.getElementById("MultiplicationTable")
+  }
+);
 if (document.getElementById("MultiplicationTable"))
 {
   document.getElementById("MultiplicationTable").innerText = 'This is a headless program, meaning there is nothing to show here.\n\nI started the program anyway though, and you can access it as `app` in the developer console.';
 }
 
-var app = Elm.Confetti.init({ node: document.getElementById("Confetti") });
+var appConfetti = Elm.Confetti.init({ node: document.getElementById("Confetti") });
 if (document.getElementById("Confetti"))
 {
   document.getElementById("Confetti").innerText = 'This is a headless program, meaning there is nothing to show here.\n\nI started the program anyway though, and you can access it as `app` in the developer console.';
 }
+
+window.winPane = document.getElementById('ConfettiContainter');
+
+
+appMultiplicationTable.ports.youwin.subscribe
+( () => 
+  { winPane.style.visibility = 'visible';
+    winPane.style.transition = 'opacity 1s ease-in-out';
+    winPane.style.opacity = 100;
+    setTimeout(() => {
+      winPane.style.opacity = 0;
+    }, 12000);
+    setTimeout(() => {
+      winPane.style.visibility = 'hidden';
+    }, 12500);
+  }
+);
 </script>
 </body>
 </html>

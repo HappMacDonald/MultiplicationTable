@@ -12,6 +12,7 @@ import Html.Attributes as Attr
 import Json.Decode as Decode
 import Url
 import Array exposing (Array)
+import Ports exposing (youwin)
 
 
 
@@ -34,21 +35,39 @@ main =
 -- MODEL
 
 
-type Model
-    = Model ( Array ( Array ( Maybe Int ) ) )
-
+type Model =
+    Model 
+    { cells : ( Array ( Array ( Maybe Int ) ) )
+    , wonyet : Bool
+    }
 
 
 -- INIT
+
+
+{-|This constant defines the smallest integer greater than 2
+which we will NOT be trying to multiply by.
+
+For ordinary operation, you set this equal to 10 in order to support
+multiplying up to 9x9.
+-}
+circumscription : Int
+circumscription =
+    10
 
 
 {- Decode.Value -> Url.Url -> Nav.Key -}
 init : a -> ( Model, Cmd Msg )
 init {-flags url navKey-} _ =
     ( Model
-        ( Array.repeat 10 Nothing
-          |>Array.repeat 10
-        ), Cmd.none )
+      { cells =
+          ( Array.repeat circumscription Nothing
+          |>Array.repeat circumscription
+          )
+        
+      , wonyet = False
+      }
+    , Cmd.none )
 
 
 
@@ -61,19 +80,72 @@ type Msg
     | Noop
 
 
+fail : String -> List Int -> String
+fail message coords =
+    message
+    ++": "
+    ++( coords
+      |>List.map String.fromInt
+      |>String.join ", "
+      )
+
+
+
+checkCells : Int -> Int -> List ( Maybe Int ) -> Bool
+checkCells verticalFactor horizontalFactor cells =
+    case cells of
+        [] ->
+            True
+
+        thisCell :: remainingRows ->
+            let
+                thisValue =
+                    Maybe.withDefault 0 thisCell
+
+                correct =
+                    horizontalFactor<2
+                    ||verticalFactor<2
+                    ||( thisValue == verticalFactor * horizontalFactor )
+
+            in
+            correct
+            &&checkCells
+                verticalFactor
+                ( horizontalFactor + 1 )
+                remainingRows
+
+
+
+checkRows : Int -> List (Array ( Maybe Int )) -> Bool
+checkRows verticalFactor rows =
+    case rows of
+        [] ->
+            True
+
+        thisRow :: remainingRows ->
+            ( thisRow
+            |>Array.toList
+            |>checkCells verticalFactor 0
+            )
+            &&checkRows ( verticalFactor + 1 ) remainingRows
+
+
+winningTable : Array ( Array ( Maybe Int ) ) -> Bool
+winningTable table =
+    table
+    |>Array.toList
+    |>checkRows 0
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg ((Model modelRows) as model) =
-    let
-        x =
-            Debug.log "update msg=" msg
-    in
+update msg ((Model modelRecord) as model) =
     case msg of
         OnEntry rowNum colNum cellStr ->
             let
                 rowOld =
-                    modelRows
+                    modelRecord.cells
                     |>Array.get rowNum
-                    |>Maybe.withDefault ( Array.repeat 10 Nothing )
+                    |>Maybe.withDefault ( Array.repeat circumscription Nothing )
 
                 cellOld =
                     rowOld
@@ -95,9 +167,9 @@ update msg ((Model modelRows) as model) =
                                     cellOld
                                 )
                             |>Maybe.withDefault cellOld
-            in
-                ( Model
-                    ( modelRows
+                
+                newCells =
+                    modelRecord.cells
                     |>Array.set
                         rowNum
                         ( Array.set
@@ -105,8 +177,23 @@ update msg ((Model modelRows) as model) =
                             cellNew
                             rowOld
                         )
-                    )
-                , Cmd.none
+
+                wonyet = 
+                    modelRecord.wonyet
+                    ||winningTable newCells
+
+                wonJustNow =
+                    not modelRecord.wonyet
+                    && wonyet
+            in
+                ( Model
+                  { modelRecord
+                  | cells = newCells
+                  , wonyet = wonyet
+                  }
+                , if wonJustNow
+                  then youwin ()
+                  else Cmd.none
                 )
 
         Reset ->
@@ -183,8 +270,8 @@ centerWrap inside =
 
 
 body : Model -> Html Msg
-body ((Model modelRows) as model) =
-    [ modelRows
+body ((Model modelRecord) as model) =
+    [ modelRecord.cells
         |>Array.indexedMap
             (\rowNum row ->
                 case rowNum of
@@ -192,7 +279,7 @@ body ((Model modelRows) as model) =
                         Element.none
 
                     1 ->
-                        List.range 1 9
+                        List.range 1 (circumscription-1)
                         |>List.map
                             (\colNum ->
                             Element.text ( String.fromInt colNum )
@@ -237,20 +324,15 @@ body ((Model modelRows) as model) =
                                             Maybe.withDefault 0 cell
 
                                         indicatorColor =
-                                            ( if 
-                                                ( Debug.log "cellNum" cellNum )
-                                                ==
-                                                ( Debug.log "row x col" (rowNum * colNum) )
+                                            ( if cellNum == rowNum * colNum
                                             then correctColor
                                             else incorrectColor
                                             )
-                                            |>Debug.log "indicatorColor"
 
                                     in
                                     Input.text
                                         [ Element.width Element.fill
                                         , Element.height Element.fill
-                                        -- , Background.color indicatorColor
                                         , Attr.style "background-color" indicatorColor
                                         |>Element.htmlAttribute
 
@@ -289,7 +371,6 @@ body ((Model modelRows) as model) =
         , Input.button
         [ Element.width Element.fill
         , Element.padding 8
-        -- , Element.explain Debug.todo
         , Font.center
         , Background.color buttonColor
         ]
@@ -303,19 +384,12 @@ body ((Model modelRows) as model) =
     |>Element.column -- vertical layout of ui
         [ Element.centerX
         , Element.centerY
-        ]        
+        ]
     |>Element.el -- container
         [ Element.centerX
         , Element.centerY
-        ]        
+        ]
     |>Element.layout -- page
         [ Element.width Element.fill
         , Element.height Element.fill
         ]
-
-
--- view : Model -> Browser.Document Msg
--- view model =
---     { title = "Multiplication Tables"
---     , body = body model
---     }
