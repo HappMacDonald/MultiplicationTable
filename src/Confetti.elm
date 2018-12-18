@@ -2,6 +2,7 @@ module Confetti exposing (main)
 
 {-| HEADS UP! You can view this example alongside the running code at
 
+https://brianhicks.github.io/elm-particle/Confetti.html
 
 We're going to make confetti come out of the party popper emoji: 🎉
 ([emojipedia](https://emojipedia.org/party-popper/)) Specifically, we're going
